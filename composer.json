@@ -1,0 +1,34 @@
+{
+  "name": "domm98cz/curl",
+  "description": "PHP lightweight cURL client",
+  "keywords": ["curl", "client", "lightweight"],
+  "homepage": "https://domm.cz",
+  "type": "library",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Dominik Procházka",
+      "email": "domm98cz@gmail.com",
+      "homepage": "https://domm.cz",
+      "role": "Developer"
+    }
+  ],
+  "support": {
+    "email": "domm98cz@gmail.com",
+    "docs": "https://github.com/Domm98CZ/curl/readme.md"
+  },
+  "require": {
+    "php": ">=8.1"
+  },
+  "require-dev": {
+    "tracy/tracy": "*",
+    "phpstan/phpstan": "^1.0.0",
+    "phpstan/phpstan-deprecation-rules": "^1.0.0",
+    "phpstan/phpstan-strict-rules": "^1.0.0"
+  },
+  "autoload": {
+    "classmap": ["src/"]
+  },
+  "minimum-stability": "dev",
+  "prefer-stable": true
+}

@@ -1,0 +1,15 @@
+includes:
+	- vendor/phpstan/phpstan-deprecation-rules/rules.neon
+	- vendor/phpstan/phpstan-nette/extension.neon
+	- vendor/phpstan/phpstan-nette/rules.neon
+	- vendor/phpstan/phpstan-strict-rules/rules.neon
+
+parameters:
+	level: 8
+	phpVersion: 80100
+
+	paths:
+		- src
+
+	reportMaybesInPropertyPhpDocTypes: false
+	checkGenericClassInNonGenericObjectType: false

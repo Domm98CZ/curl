@@ -1,1 +1,2 @@
-# curl
+# PHP cURL client
+
