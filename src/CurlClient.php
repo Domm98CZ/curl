@@ -1,5 +1,4 @@
-<?php
-declare(strict_types=1);
+<?php declare(strict_types=1);
 
 namespace Domm98CZ\CurlClient;
 
@@ -41,7 +40,7 @@ class CurlClient
 
     private string $postFields = '';
     private ?string $method = null;
-    private ?string $curlError;
+    private ?string $curlError = null;
     private ?string $uri = null;
     private ?string $cert = null;
     private string|bool $response;
@@ -138,6 +137,7 @@ class CurlClient
 
         curl_setopt($curlClient, CURLOPT_FRESH_CONNECT, $this->isUseCache());
         curl_setopt($curlClient, CURLOPT_POSTFIELDS, $this->getPostFields());
+        curl_setopt($curlClient, CURLOPT_CONNECTTIMEOUT, $this->getTimeout());
         curl_setopt($curlClient, CURLOPT_TIMEOUT, $this->getTimeout());
 
         return $curlClient;
@@ -174,10 +174,9 @@ class CurlClient
 
         $curlClient = curl_init($uri);
         if (!$curlClient instanceof CurlHandle) {
-            throw new ShouldNotHappenException('CurlHandle is not valid-');
+            throw new ShouldNotHappenException('CurlHandle is not valid.');
         }
 
-        curl_setopt($curlClient, CURLOPT_FAILONERROR, true);
         curl_setopt($curlClient, CURLOPT_FOLLOWLOCATION, true);
         curl_setopt($curlClient, CURLOPT_RETURNTRANSFER, true);
 
@@ -415,13 +414,4 @@ class CurlClient
     {
         $this->ssl_verify_peer = $ssl_verify_peer;
     }
-
-    /**
-     * @return void
-     */
-    public function debug(): void
-    {
-        bdump($this);
-    }
 }
-
