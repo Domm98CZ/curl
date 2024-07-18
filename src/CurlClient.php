@@ -1,5 +1,4 @@
 <?php declare(strict_types=1);
-
 namespace Domm98CZ\CurlClient;
 
 use CurlHandle;
@@ -47,6 +46,7 @@ class CurlClient
 
     private int $timeout = 0;
     private ?int $httpCode;
+    private array $response_header = [];
 
     /**
      * @param string $uri
@@ -86,6 +86,24 @@ class CurlClient
     }
 
     /**
+     * @return array
+     */
+    public function getResponseHeader(): array
+    {
+        return $this->response_header;
+    }
+
+    /**
+     * @param array $response_header
+     * @return $this
+     */
+    public function setResponseHeader(array $response_header): CurlClient
+    {
+        $this->response_header = $response_header;
+        return $this;
+    }
+
+    /**
      *
      */
     public function execute(): void
@@ -114,7 +132,8 @@ class CurlClient
             curl_setopt($curlClient, CURLOPT_CAINFO, $this->getCert());
         }
 
-        curl_setopt($curlClient, CURLOPT_HEADER, false);
+        curl_setopt($curlClient, CURLOPT_HEADER, true);
+        curl_setopt($curlClient, CURLOPT_RETURNTRANSFER, true);
 
         if(!$this->isUseCache()) {
             $this->addHeaders('Cache-Control: no-cache');
@@ -150,12 +169,18 @@ class CurlClient
     private function configureCurlClientResponse(CurlHandle &$curlClient): CurlHandle
     {
         $result = curl_exec($curlClient);
-        $this->setResponse($result);
 
         if (curl_errno($curlClient)) {
             $this->setCurlError(curl_error($curlClient));
         }
 
+        $header_size = curl_getinfo($curlClient, CURLINFO_HEADER_SIZE);
+        $header = substr($result, 0, $header_size);
+        $body = substr($result, $header_size);
+        $this->setResponseHeader(self::parseHttpResponseHeaders($header));
+        unset($result);
+
+        $this->setResponse($body);
         $this->setHttpCode(curl_getinfo($curlClient, CURLINFO_HTTP_CODE));
         $this->setCurlInfo(curl_getinfo($curlClient));
         curl_close($curlClient);
@@ -177,6 +202,7 @@ class CurlClient
             throw new ShouldNotHappenException('CurlHandle is not valid.');
         }
 
+        curl_setopt($curlClient, CURLOPT_FAILONERROR, true);
         curl_setopt($curlClient, CURLOPT_FOLLOWLOCATION, true);
         curl_setopt($curlClient, CURLOPT_RETURNTRANSFER, true);
 
@@ -414,4 +440,56 @@ class CurlClient
     {
         $this->ssl_verify_peer = $ssl_verify_peer;
     }
+
+    /**
+     * @return void
+     */
+    public function debug(): void
+    {
+        if (class_exists(\Tracy\Debugger::class)) {
+            bdump($this);
+        } elseif (class_exists(\Symfony\Component\VarDumper\VarDumper::class)) {
+            dump($this);
+        } else {
+            var_dump($this);
+        }
+    }
+
+    /**
+     * @param string $headerString
+     * @return array
+     */
+    public static function parseHttpResponseHeaders(string $headerString): array
+    {
+        $headers = [];
+        $lines = explode("\n", trim($headerString));
+
+        foreach ($lines as $line) {
+            $line = trim($line);
+
+            // První řádek je stavová řádka (např. "HTTP/1.1 200 OK"), tak ji uložíme samostatně
+            if (strpos($line, 'HTTP/') === 0) {
+                $headers['Status'] = $line;
+            } else {
+                // Rozdělíme řádku na klíč a hodnotu
+                $parts = explode(':', $line, 2);
+                if (count($parts) == 2) {
+                    $key = trim($parts[0]);
+                    $value = trim($parts[1]);
+
+                    // Pokud klíč už existuje (např. Set-Cookie), přidáme hodnotu do pole
+                    if (isset($headers[$key])) {
+                        if (!is_array($headers[$key])) {
+                            $headers[$key] = [$headers[$key]];
+                        }
+                        $headers[$key][] = $value;
+                    } else {
+                        $headers[$key] = $value;
+                    }
+                }
+            }
+        }
+        return $headers;
+    }
 }
+
