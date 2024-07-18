@@ -1,5 +1,4 @@
 <?php declare(strict_types=1);
-
 namespace Domm98CZ\CurlClient;
 
 use CurlHandle;
@@ -179,11 +178,9 @@ class CurlClient
         $header = substr($result, 0, $header_size);
         $body = substr($result, $header_size);
         $this->setResponseHeader(self::parseHttpResponseHeaders($header));
-
         unset($result);
 
         $this->setResponse($body);
-
         $this->setHttpCode(curl_getinfo($curlClient, CURLINFO_HTTP_CODE));
         $this->setCurlInfo(curl_getinfo($curlClient));
         curl_close($curlClient);
@@ -449,7 +446,13 @@ class CurlClient
      */
     public function debug(): void
     {
-        bdump($this);
+        if (class_exists(\Tracy\Debugger::class)) {
+            bdump($this);
+        } elseif (class_exists(\Symfony\Component\VarDumper\VarDumper::class)) {
+            dump($this);
+        } else {
+            var_dump($this);
+        }
     }
 
     /**
@@ -486,9 +489,7 @@ class CurlClient
                 }
             }
         }
-
         return $headers;
     }
-
 }
 
