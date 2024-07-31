@@ -47,6 +47,7 @@ class CurlClient
     private int $timeout = 0;
     private ?int $httpCode;
     private array $response_header = [];
+    private bool $fail_on_error = true;
 
     /**
      * @param string $uri
@@ -83,6 +84,24 @@ class CurlClient
         } else {
             throw new SingleRuntimeException('Curl client is already running.');
         }
+    }
+
+    /**
+     * @return bool
+     */
+    public function isFailOnError(): bool
+    {
+        return $this->fail_on_error;
+    }
+
+    /**
+     * @param bool $fail_on_error
+     * @return $this
+     */
+    public function setFailOnError(bool $fail_on_error): CurlClient
+    {
+        $this->fail_on_error = $fail_on_error;
+        return $this;
     }
 
     /**
@@ -202,7 +221,7 @@ class CurlClient
             throw new ShouldNotHappenException('CurlHandle is not valid.');
         }
 
-        curl_setopt($curlClient, CURLOPT_FAILONERROR, true);
+        curl_setopt($curlClient, CURLOPT_FAILONERROR, $this->isFailOnError());
         curl_setopt($curlClient, CURLOPT_FOLLOWLOCATION, true);
         curl_setopt($curlClient, CURLOPT_RETURNTRANSFER, true);
 
