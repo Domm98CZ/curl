@@ -193,13 +193,17 @@ class CurlClient
             $this->setCurlError(curl_error($curlClient));
         }
 
-        $header_size = curl_getinfo($curlClient, CURLINFO_HEADER_SIZE);
-        $header = substr($result, 0, $header_size);
-        $body = substr($result, $header_size);
-        $this->setResponseHeader(self::parseHttpResponseHeaders($header));
-        unset($result);
-
-        $this->setResponse($body);
+        if ($result !== false && $result !== null) {
+            $header_size = curl_getinfo($curlClient, CURLINFO_HEADER_SIZE);
+            $header = substr($result, 0, $header_size);
+            $body = substr($result, $header_size);
+            $this->setResponseHeader(self::parseHttpResponseHeaders($header));
+            $this->setResponse($body);
+            unset($result);
+        } else {
+            $this->setResponseHeader([]);
+            $this->setResponse('');
+        }
         $this->setHttpCode(curl_getinfo($curlClient, CURLINFO_HTTP_CODE));
         $this->setCurlInfo(curl_getinfo($curlClient));
         curl_close($curlClient);
