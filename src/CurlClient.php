@@ -166,6 +166,7 @@ class CurlClient
         } else {
             curl_setopt($curlClient, CURLOPT_CUSTOMREQUEST, $this->getMethod() ?? self::CURL_METHOD_GET);
         }
+        curl_setopt($curlClient, CURLOPT_ENCODING, ''); //allow all encodings supported by php
 
         if (!empty($this->getCustomOptions())) {
             foreach ($this->getCustomOptions() as $option => $value) {
