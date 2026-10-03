@@ -1,0 +1,2 @@
+rates: HTTP 200
+cez: HTTP 200

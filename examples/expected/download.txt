@@ -1,0 +1,2 @@
+HTTP 200, text/plain;charset=UTF-8, 905 bytes written to /tmp/denni_kurz.txt
+02.10.2026 #190
