@@ -15,6 +15,13 @@ final class RawResponseTest extends TestCase
         self::assertFalse($raw->responseSizeExceeded);
     }
 
+    public function testContentDecodingIsAssumedUnlessTheTransportSaysOtherwise(): void
+    {
+        $raw = new RawResponse(0, '', "HTTP/1.1 200 OK\r\n\r\n", new Stream(fopen('php://temp', 'r+')), []);
+
+        self::assertTrue($raw->contentDecodingEnabled);
+    }
+
     public function testNonZeroErrnoIsAnError(): void
     {
         $raw = new RawResponse(6, "Couldn't resolve host", '', new Stream(fopen('php://temp', 'r+')), []);

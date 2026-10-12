@@ -17,18 +17,23 @@ final class HttpResponseParser implements ResponseParserInterface
         return $this->buildResponse(
             $this->lastHeaderBlock($rawResponse->headerRaw),
             $rawResponse->body,
-            $rawResponse->bodyBuffered
+            $rawResponse->bodyBuffered,
+            $rawResponse->contentDecodingEnabled
         );
     }
 
     /** @internal */
     public function parseHeaderBlock(string $headerBlock, ?StreamInterface $body = null): ResponseInterface
     {
-        return $this->buildResponse(trim($headerBlock), $body ?? new Stream(self::openTempStream()), false);
+        return $this->buildResponse(trim($headerBlock), $body ?? new Stream(self::openTempStream()), false, true);
     }
 
-    private function buildResponse(string $headerBlock, StreamInterface $body, bool $bodyBuffered): ResponseInterface
-    {
+    private function buildResponse(
+        string $headerBlock,
+        StreamInterface $body,
+        bool $bodyBuffered,
+        bool $contentDecodingEnabled
+    ): ResponseInterface {
         $lines = $headerBlock === '' ? [] : explode("\r\n", $headerBlock);
 
         [$statusCode, $reasonPhrase, $protocolVersion] = $this->parseStatusLine((string) array_shift($lines));
@@ -49,6 +54,11 @@ final class HttpResponseParser implements ResponseParserInterface
             } catch (\InvalidArgumentException) {
                 continue;
             }
+        }
+
+        // an undecoded body still matches the headers the server sent, so there is nothing to correct
+        if (!$contentDecodingEnabled) {
+            return $response;
         }
 
         return $this->normalizeDecodedBodyHeaders($response, $bodyBuffered);

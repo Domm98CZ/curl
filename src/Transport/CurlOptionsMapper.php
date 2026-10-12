@@ -57,11 +57,15 @@ final class CurlOptionsMapper implements CurlOptionsMapperInterface
 
         if (HttpSchemeGuard::isHttp($scheme)) {
             $curlOptions[CURLOPT_ENCODING] = '';
+            if (defined('CURLOPT_PATH_AS_IS')) {
+                // libcurl would otherwise collapse dot segments and send a path the request never named
+                $curlOptions[CURLOPT_PATH_AS_IS] = true;
+            }
         }
 
         $headers = $this->mapHeaders($request, $uri);
         $bodyShape = RequestBodyPolicy::methodCarriesRequestBody($method)
-            ? $this->mapBody($request, $curlOptions, $headers)
+            ? $this->mapBody($method, $request, $curlOptions, $headers)
             : BodyShape::None;
         $this->mapMethod($method, $bodyShape, $curlOptions);
         $curlOptions[CURLOPT_HTTPHEADER] = $headers;
@@ -181,13 +185,18 @@ final class CurlOptionsMapper implements CurlOptionsMapperInterface
      * @param array<int, mixed> $curlOptions
      * @param string[] $headers
      */
-    private function mapBody(RequestInterface $request, array &$curlOptions, array &$headers): BodyShape
+    private function mapBody(string $method, RequestInterface $request, array &$curlOptions, array &$headers): BodyShape
     {
         try {
             $body = $request->getBody();
             $size = $body->getSize();
             $shape = RequestBodyPolicy::shapeForSize($size);
             if (!$shape->hasBody()) {
+                if ($method === 'POST') {
+                    // without a buffer libcurl sends a chunked upload with Expect and waits for 100 Continue
+                    $curlOptions[CURLOPT_POSTFIELDS] = '';
+                    $this->omitLibcurlFormContentType($request, $headers);
+                }
                 return $shape;
             }
 
@@ -197,10 +206,7 @@ final class CurlOptionsMapper implements CurlOptionsMapperInterface
 
             if ($shape === BodyShape::Buffered) {
                 $curlOptions[CURLOPT_POSTFIELDS] = $body->getContents();
-                if (!$request->hasHeader('Content-Type')) {
-                    // an empty value tells libcurl to omit its own application/x-www-form-urlencoded default
-                    $headers[] = 'Content-Type:';
-                }
+                $this->omitLibcurlFormContentType($request, $headers);
                 if (!$request->hasHeader('Expect')) {
                     // a whole buffer needs no interim response; libcurl's own Expect threshold varies by
                     // version and a server that never answers 100 Continue would cost a full wait per request
@@ -219,6 +225,15 @@ final class CurlOptionsMapper implements CurlOptionsMapperInterface
             throw $exception;
         } catch (RuntimeException $exception) {
             throw new RequestException('Unable to prepare the request body.', $request, $exception);
+        }
+    }
+
+    /** @param string[] $headers */
+    private function omitLibcurlFormContentType(RequestInterface $request, array &$headers): void
+    {
+        if (!$request->hasHeader('Content-Type')) {
+            // an empty value tells libcurl to omit its own application/x-www-form-urlencoded default
+            $headers[] = 'Content-Type:';
         }
     }
 

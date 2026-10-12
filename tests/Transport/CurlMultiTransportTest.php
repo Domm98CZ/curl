@@ -13,6 +13,7 @@ use Domm98CZ\Curl\Exceptions\ClientException;
 use Domm98CZ\Curl\Exceptions\NetworkException;
 use Domm98CZ\Curl\Exceptions\RequestException;
 use Domm98CZ\Curl\Exceptions\ResponseBufferException;
+use Domm98CZ\Curl\Options\Encoding;
 use Domm98CZ\Curl\Options\RawCurlOption;
 use Domm98CZ\Curl\Pool;
 use Domm98CZ\Curl\Psr7\Request;
@@ -69,6 +70,26 @@ final class CurlMultiTransportTest extends TestCase
         $raw = $this->transport->takeResult($id);
         self::assertFalse($raw->isTransportError());
         self::assertSame('ok', (string) $raw->body);
+    }
+
+    public function testTheDecodingFlagTravelsWithEachTransfer(): void
+    {
+        $decodedId = $this->transport->add(new Request('GET', self::$server->baseUrl . '/gzip'), new RequestOptions());
+        $rawId = $this->transport->add(
+            new Request('GET', self::$server->baseUrl . '/gzip'),
+            new RequestOptions([Encoding::disabled()]),
+        );
+
+        while (!$this->transport->isDone($decodedId) || !$this->transport->isDone($rawId)) {
+            $this->transport->tick();
+        }
+
+        $decoded = $this->transport->takeResult($decodedId);
+        $raw = $this->transport->takeResult($rawId);
+        self::assertTrue($decoded->contentDecodingEnabled);
+        self::assertStringStartsWith('compressible-payload', (string) $decoded->body);
+        self::assertFalse($raw->contentDecodingEnabled);
+        self::assertStringStartsWith("\x1f\x8b", (string) $raw->body);
     }
 
     public function testTwoRequestsRunConcurrentlyOnOneMultiHandle(): void

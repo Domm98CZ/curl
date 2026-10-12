@@ -364,7 +364,8 @@ final class CurlOptionsMapperTest extends TestCase
 
         $options = $this->mapper->map($request, new RequestOptions());
 
-        self::assertSame(['X-Foo: , ', 'X-Bar;', 'Accept: application/json'], $options[CURLOPT_HTTPHEADER]);
+        // the trailing empty Content-Type belongs to the empty POST buffer, not to the dropped framing
+        self::assertSame(['X-Foo: , ', 'X-Bar;', 'Accept: application/json', 'Content-Type:'], $options[CURLOPT_HTTPHEADER]);
     }
 
     public function testAnEmptyValueListOnANonFramingHeaderIsStillSkipped(): void
@@ -614,6 +615,49 @@ final class CurlOptionsMapperTest extends TestCase
         self::assertArrayNotHasKey(CURLOPT_ENCODING, $ftp);
     }
 
+    #[DataProvider('httpSchemeProvider')]
+    public function testSendsTheHttpPathWithoutCollapsingDotSegments(string $url): void
+    {
+        $options = $this->mapper->map(new Request('GET', $url), new RequestOptions());
+
+        self::assertTrue($options[CURLOPT_PATH_AS_IS]);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function httpSchemeProvider(): iterable
+    {
+        yield 'http' => ['http://example.com/a/../b'];
+        yield 'https' => ['https://example.com/a/../b'];
+        yield 'upper case scheme' => ['HTTPS://example.com/a/../b'];
+        yield 'no scheme' => ['/a/../b'];
+    }
+
+    #[DataProvider('nonHttpSchemeProvider')]
+    public function testLeavesTheLibcurlPathDefaultForNonHttpSchemes(string $url): void
+    {
+        $options = $this->mapper->map(new Request('GET', $url), new RequestOptions());
+
+        self::assertArrayNotHasKey(CURLOPT_PATH_AS_IS, $options);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function nonHttpSchemeProvider(): iterable
+    {
+        yield 'ftp' => ['ftp://example.com/a/../f.txt'];
+        yield 'smtp' => ['smtp://example.com'];
+        yield 'unknown' => ['custom://example.com/a/../b'];
+    }
+
+    public function testARawPathAsIsOptionOptsBackIntoDotSegmentRemoval(): void
+    {
+        $options = $this->mapper->map(
+            new Request('GET', 'https://example.com/a/../b'),
+            new RequestOptions([new RawCurlOption(CURLOPT_PATH_AS_IS, false)])
+        );
+
+        self::assertFalse($options[CURLOPT_PATH_AS_IS]);
+    }
+
     public function testExplicitEncodingOptionStillOverridesTheDefault(): void
     {
         $options = $this->mapper->map(
@@ -622,6 +666,17 @@ final class CurlOptionsMapperTest extends TestCase
         );
 
         self::assertSame('gzip', $options[CURLOPT_ENCODING]);
+    }
+
+    public function testADisabledEncodingOverridesTheDefaultWithNull(): void
+    {
+        $options = $this->mapper->map(
+            new Request('GET', 'https://example.com'),
+            new RequestOptions([Encoding::disabled()])
+        );
+
+        self::assertArrayHasKey(CURLOPT_ENCODING, $options);
+        self::assertNull($options[CURLOPT_ENCODING]);
     }
 
     public function testMaxResponseSizeMapsToCurlMaxFileSize(): void

@@ -19,7 +19,7 @@ final class CurlMultiTransport implements MultiTransportInterface
 {
     private readonly CurlMultiHandle $multiHandle;
 
-    /** @var array<int, array{easyHandle: ?CurlHandle, request: RequestInterface, options: OptionsInterface, headerBuffer: HeaderBuffer, bodyResource: resource, buffered: bool, maximumResponseSize: ?int, responseSizeExceeded: \Closure(): bool, callbackFailure: \Closure(): ?\Throwable, done: bool, failure: ?\Throwable, rawResponse: ?RawResponse}> */
+    /** @var array<int, array{easyHandle: ?CurlHandle, request: RequestInterface, options: OptionsInterface, headerBuffer: HeaderBuffer, bodyResource: resource, buffered: bool, contentDecodingEnabled: bool, maximumResponseSize: ?int, responseSizeExceeded: \Closure(): bool, callbackFailure: \Closure(): ?\Throwable, done: bool, failure: ?\Throwable, rawResponse: ?RawResponse}> */
     private array $handles = [];
 
     /** @var array<int, int> */
@@ -67,6 +67,7 @@ final class CurlMultiTransport implements MultiTransportInterface
             );
         }
         $maximumResponseSize = ResponseSizeLimit::resolve($curlOptions, $request);
+        $contentDecodingEnabled = ContentDecoding::isEnabled($curlOptions);
         $streamHandler = $options->getStreamHandler();
         $headerBuffer = new HeaderBuffer();
         $bodyResource = fopen('php://temp', 'r+');
@@ -100,6 +101,7 @@ final class CurlMultiTransport implements MultiTransportInterface
             'headerBuffer' => $headerBuffer,
             'bodyResource' => $bodyResource,
             'buffered' => $streamHandler === null,
+            'contentDecodingEnabled' => $contentDecodingEnabled,
             'maximumResponseSize' => $maximumResponseSize,
             'responseSizeExceeded' => $responseSizeExceededProbe,
             'callbackFailure' => $callbackFailureProbe,
@@ -286,6 +288,7 @@ final class CurlMultiTransport implements MultiTransportInterface
                     $curlInfo,
                     $entry['buffered'],
                     $verdict['exceeded'],
+                    $entry['contentDecodingEnabled'],
                 );
             } catch (\Throwable $exception) {
                 $failure = $exception;

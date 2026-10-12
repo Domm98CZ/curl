@@ -9,6 +9,8 @@ use Domm98CZ\Curl\Exceptions\NetworkException;
 use Domm98CZ\Curl\Exceptions\RequestException;
 use Domm98CZ\Curl\Exceptions\ResponseBufferException;
 use Domm98CZ\Curl\Options\ConnectTimeout;
+use Domm98CZ\Curl\Options\Encoding;
+use Domm98CZ\Curl\Options\RawCurlOption;
 use Domm98CZ\Curl\Options\Timeout;
 use Domm98CZ\Curl\Psr7\Request;
 use Domm98CZ\Curl\Psr7\Stream;
@@ -193,6 +195,134 @@ final class CurlTransportTest extends TestCase
 
         $received = json_decode((string) $raw->body, true, flags: JSON_THROW_ON_ERROR);
         self::assertSame('100-continue', strtolower($received['expect']));
+    }
+
+    // php -S never answers Expect, so the old chunked framing of an empty POST cost a whole interim wait
+    public function testAnEmptyPostIsSentWithAZeroContentLengthAndNoInterimWait(): void
+    {
+        $request = new Request('POST', self::$server->baseUrl . '/echo-request');
+
+        $started = microtime(true);
+        $raw = $this->transport->execute($request, new RequestOptions());
+        $elapsed = microtime(true) - $started;
+
+        self::assertFalse($raw->isTransportError());
+        $received = json_decode((string) $raw->body, true, flags: JSON_THROW_ON_ERROR);
+        self::assertSame('POST', $received['method']);
+        self::assertSame('0', $received['contentLength']);
+        self::assertSame('', $received['transferEncoding']);
+        self::assertSame('', $received['expect']);
+        self::assertSame('', $received['contentType']);
+        self::assertSame('', $received['body']);
+        self::assertLessThan(0.5, $elapsed);
+    }
+
+    public function testAnEmptyPostKeepsAnExplicitContentType(): void
+    {
+        $request = new Request('POST', self::$server->baseUrl . '/echo-request', ['Content-Type' => 'application/json']);
+
+        $raw = $this->transport->execute($request, new RequestOptions());
+
+        self::assertFalse($raw->isTransportError());
+        $received = json_decode((string) $raw->body, true, flags: JSON_THROW_ON_ERROR);
+        self::assertSame('application/json', $received['contentType']);
+        self::assertSame('0', $received['contentLength']);
+        self::assertSame('', $received['transferEncoding']);
+    }
+
+    #[DataProvider('dotSegmentPathProvider')]
+    public function testDotSegmentsInThePathReachTheWireVerbatim(string $pathAndQuery): void
+    {
+        self::$server->clearRequests();
+
+        $raw = $this->transport->execute(new Request('GET', self::$server->baseUrl . $pathAndQuery), new RequestOptions());
+
+        self::assertFalse($raw->isTransportError());
+        self::assertSame(['GET ' . $pathAndQuery . ' HTTP/1.1'], self::$server->requests());
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function dotSegmentPathProvider(): iterable
+    {
+        yield 'dot segments with a query' => ['/a/../b/./c?x=1'];
+        yield 'percent-encoded dot segments' => ['/%2e%2e/x'];
+    }
+
+    public function testARawPathAsIsOptOutRestoresLibcurlDotSegmentRemoval(): void
+    {
+        self::$server->clearRequests();
+
+        $raw = $this->transport->execute(
+            new Request('GET', self::$server->baseUrl . '/a/../b/./c?x=1'),
+            new RequestOptions([new RawCurlOption(CURLOPT_PATH_AS_IS, false)]),
+        );
+
+        self::assertFalse($raw->isTransportError());
+        self::assertSame(['GET /b/c?x=1 HTTP/1.1'], self::$server->requests());
+    }
+
+    // CURLOPT_PATH_AS_IS covers every hop, yet libcurl still resolves a relative Location by RFC 3986
+    #[DataProvider('relativeRedirectProvider')]
+    public function testARelativeRedirectIsResolvedWithoutDotSegments(string $sourcePath, string $location): void
+    {
+        self::$server->clearRequests();
+        $source = $sourcePath . '?url=' . rawurlencode($location);
+
+        $raw = $this->transport->execute(new Request('GET', self::$server->baseUrl . $source), new RequestOptions());
+
+        self::assertFalse($raw->isTransportError());
+        self::assertSame('target-ok', (string) $raw->body);
+        self::assertSame(['GET ' . $source . ' HTTP/1.1', 'GET /hit HTTP/1.1'], self::$server->requests());
+    }
+
+    /** @return iterable<string, array{string, string}> */
+    public static function relativeRedirectProvider(): iterable
+    {
+        yield 'parent segments' => ['/dir/sub/redirect-to', '../../hit'];
+        yield 'parent segments from a dotted base' => ['/a/../dir/sub/redirect-to', '../../hit'];
+        yield 'dot segments inside the reference' => ['/dir/sub/redirect-to', './x/../../../hit'];
+        yield 'dot segments in an absolute-path reference' => ['/dir/sub/redirect-to', '/a/./b/../../hit'];
+    }
+
+    public function testADisabledEncodingDeliversTheBodyAndItsHeadersExactlyAsTheServerSentThem(): void
+    {
+        $response = (new Client($this->transport))->send(
+            new Request('GET', self::$server->baseUrl . '/gzip'),
+            new RequestOptions([Encoding::disabled()]),
+        );
+
+        $body = (string) $response->getBody();
+        self::assertStringStartsWith("\x1f\x8b", $body);
+        self::assertSame('gzip', $response->getHeaderLine('Content-Encoding'));
+        self::assertSame((string) strlen($body), $response->getHeaderLine('Content-Length'));
+    }
+
+    // the oracle is libcurl itself: the flag must say "decoded" exactly when the body arrived decoded
+    #[DataProvider('decodingOptionProvider')]
+    public function testTheDecodingFlagAgreesWithWhatLibcurlDidOnTheWire(Encoding|RawCurlOption $option): void
+    {
+        $raw = $this->transport->execute(
+            new Request('GET', self::$server->baseUrl . '/gzip'),
+            new RequestOptions([$option]),
+        );
+
+        self::assertFalse($raw->isTransportError());
+        self::assertSame(!str_starts_with((string) $raw->body, "\x1f\x8b"), $raw->contentDecodingEnabled);
+    }
+
+    /** @return iterable<string, array{Encoding|RawCurlOption}> */
+    public static function decodingOptionProvider(): iterable
+    {
+        yield 'default encoding' => [new Encoding()];
+        yield 'named encoding' => [new Encoding('gzip')];
+        yield 'disabled encoding' => [Encoding::disabled()];
+        yield 'raw null encoding' => [new RawCurlOption(CURLOPT_ENCODING, null)];
+        foreach ([
+            'true' => true, 'false' => false, 'null' => null, '0' => 0, '1' => 1, "'0'" => '0',
+            "''" => '', "'no'" => 'no', '0.5' => 0.5, '[0]' => [0], "'2abc'" => '2abc',
+        ] as $label => $value) {
+            yield 'content decoding ' . $label => [new RawCurlOption(CURLOPT_HTTP_CONTENT_DECODING, $value)];
+        }
     }
 
     public function testLargeGetBodyIsSentAsGetThroughTheReadCallback(): void

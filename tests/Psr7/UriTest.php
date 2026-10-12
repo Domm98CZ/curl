@@ -50,6 +50,22 @@ final class UriTest extends TestCase
         self::assertSame('https://a%20b:p%20w@example.com/path', (string) $uri);
     }
 
+    public function testAnInternationalizedHostIsRejectedWithAHintToConvertItToAscii(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage(
+            'Invalid URI host: "münchen.example". Internationalized domain names must be converted to ASCII first, '
+            . 'e.g. with idn_to_ascii().'
+        );
+
+        new Uri('https://münchen.example/path');
+    }
+
+    public function testAPunycodeHostIsAccepted(): void
+    {
+        self::assertSame('xn--mnchen-3ya.example', (new Uri('https://xn--mnchen-3ya.example/path'))->getHost());
+    }
+
     public function testWithPortRejectsOutOfRangeValues(): void
     {
         $this->expectException(\InvalidArgumentException::class);

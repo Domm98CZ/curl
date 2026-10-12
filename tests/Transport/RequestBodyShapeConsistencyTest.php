@@ -22,23 +22,26 @@ use Psr\Http\Message\StreamInterface;
 final class RequestBodyShapeConsistencyTest extends TestCase
 {
     #[DataProvider('reportedSizeProvider')]
-    public function testTheMapperSendsTheShapeTheClassifierDerivedFromTheSameReportedSize(?int $reportedSize): void
+    public function testTheMapperSendsTheShapeTheClassifierDerivedFromTheSameReportedSize(string $method, ?int $reportedSize): void
     {
-        $request = (new Request('PUT', 'https://example.com/'))->withBody($this->bodyReporting($reportedSize));
+        $request = (new Request($method, 'https://example.com/'))->withBody($this->bodyReporting($reportedSize));
 
         $curlOptions = (new CurlOptionsMapper())->map($request, new RequestOptions());
 
         self::assertSame(RequestBodyPolicy::shapeForSize($reportedSize), self::shapeSentBy($curlOptions));
     }
 
-    /** @return iterable<string, array{?int}> */
+    /** @return iterable<string, array{string, ?int}> */
     public static function reportedSizeProvider(): iterable
     {
-        yield 'reported empty while the stream still holds bytes' => [0];
-        yield 'reported short' => [7];
-        yield 'reported exactly at the buffering limit' => [CurlOptionsMapper::REPLAYABLE_BODY_LIMIT];
-        yield 'reported one byte over the buffering limit' => [CurlOptionsMapper::REPLAYABLE_BODY_LIMIT + 1];
-        yield 'reported unknown' => [null];
+        // POST is covered on its own because an empty POST still carries a (zero-length) POSTFIELDS buffer
+        foreach (['PUT', 'POST'] as $method) {
+            yield $method . ' reported empty while the stream still holds bytes' => [$method, 0];
+            yield $method . ' reported short' => [$method, 7];
+            yield $method . ' reported exactly at the buffering limit' => [$method, CurlOptionsMapper::REPLAYABLE_BODY_LIMIT];
+            yield $method . ' reported one byte over the buffering limit' => [$method, CurlOptionsMapper::REPLAYABLE_BODY_LIMIT + 1];
+            yield $method . ' reported unknown' => [$method, null];
+        }
     }
 
     private function bodyReporting(?int $reportedSize): StreamInterface
@@ -58,7 +61,8 @@ final class RequestBodyShapeConsistencyTest extends TestCase
     /** @param array<int, mixed> $curlOptions */
     private static function shapeSentBy(array $curlOptions): BodyShape
     {
-        $buffered = array_key_exists(CURLOPT_POSTFIELDS, $curlOptions);
+        // a zero-length buffer puts no body bytes on the wire, which is what None means
+        $buffered = array_key_exists(CURLOPT_POSTFIELDS, $curlOptions) && $curlOptions[CURLOPT_POSTFIELDS] !== '';
         $streamed = array_key_exists(CURLOPT_READFUNCTION, $curlOptions);
         self::assertFalse($buffered && $streamed, 'The mapper sent the body through both shapes at once.');
 

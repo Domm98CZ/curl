@@ -47,6 +47,7 @@ final class CurlTransport implements TransportInterface
             );
         }
         $maximumResponseSize = ResponseSizeLimit::resolve($curlOptions, $request);
+        $contentDecodingEnabled = ContentDecoding::isEnabled($curlOptions);
         $callbacks = DeliveryCallbacks::install(
             $curlOptions,
             $streamHandler,
@@ -106,6 +107,7 @@ final class CurlTransport implements TransportInterface
             $info,
             $streamHandler === null,
             $verdict['exceeded'],
+            $contentDecodingEnabled,
         );
     }
 }

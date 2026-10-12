@@ -311,6 +311,20 @@ final class RequestBuilderTest extends TestCase
         self::assertSame(1024, $curlOptions[CURLOPT_MAXFILESIZE]);
     }
 
+    public function testWithoutEncodingWritesANullEncoding(): void
+    {
+        $transport = new FakeTransport($this->okRaw());
+        RequestBuilder::get('/')->withoutEncoding()->send(new Client($transport));
+
+        $curlOptions = [];
+        foreach ($transport->calls[0]['options']->all() as $option) {
+            $curlOptions += $option->toCurlOptions();
+        }
+
+        self::assertArrayHasKey(CURLOPT_ENCODING, $curlOptions);
+        self::assertNull($curlOptions[CURLOPT_ENCODING]);
+    }
+
     public function testWithoutCacheSetsFreshConnectOptionAndHeader(): void
     {
         $transport = new FakeTransport($this->okRaw());

@@ -171,11 +171,22 @@ change, the transfer and its retained resources continued until the transport it
 - **Responses are decompressed by default.** `getBody()` returns decoded bytes
   and the `Content-Encoding` header is removed, with `Content-Length` rewritten
   to match. If you were decompressing yourself, stop — or attach
-  `Options\Encoding` to take control.
+  `Options\Encoding` to take control. `Encoding::disabled()` (or
+  `RequestBuilder::withoutEncoding()`) switches decoding off, and then both headers
+  stay exactly as the server sent them.
 - **Streamed POST bodies now use `CURLOPT_UPLOAD` with `CURLOPT_CUSTOMREQUEST` set to
   `POST`.** The HTTP request remains a `POST` with a `Content-Length`, but libcurl no longer
   adds `Content-Type: application/x-www-form-urlencoded` as it did for `CURLOPT_POST`.
-  Applications relying on that implicit value must set `Content-Type` explicitly.
+  Applications relying on that implicit value must set `Content-Type` explicitly. The same holds
+  for a `POST` without a body, which is now sent with `Content-Length: 0` instead of as an empty
+  chunked upload that waited for a `100 Continue`.
+- **Dot segments in the path are no longer collapsed.** HTTP(S) requests are sent with
+  `CURLOPT_PATH_AS_IS`, so `/a/../b/./c` reaches the server as written instead of as `/b/c`, and
+  `%2e%2e` stays encoded, matching the dot segments `getRequestTarget()` reports. It is no
+  path-traversal defence either way: the server, and any proxy or gateway in front of it, still
+  resolves the dots its own way, so validate a path you build from input.
+  `RawCurlOption(CURLOPT_PATH_AS_IS, false)` restores libcurl's default; `sendRaw()` to other
+  schemes is unaffected.
 - **`Options\MaxResponseSize` now counts response headers against the same ceiling as the
   final response body.** A response with a large header block that previously succeeded can
   now fail with `Maximum response size of N bytes exceeded.`; the ceiling covers the final

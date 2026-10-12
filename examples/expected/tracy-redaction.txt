@@ -1,0 +1,63 @@
+Tracy defaults:
+Domm98CZ\Curl\Psr7\Request #2
+   uri: Domm98CZ\Curl\Psr7\Uri #4
+   |  scheme: 'https'
+   |  userInfo: ''
+   |  host: 'api.example.com'
+   |  port: null
+   |  path: '/users'
+   |  query: ''
+   |  fragment: ''
+   method: 'GET'
+   requestTarget: null
+   protocolVersion: '1.1'
+   headers: array (3)
+   |  'host' => array (1)
+   |  |  0 => 'api.example.com'
+   |  'authorization' => ***** (array)
+   |  'x-api-key' => array (1)
+   |  |  0 => 'secret-key'
+   headerNames: array (3)
+   |  'host' => 'Host'
+   |  'authorization' => ***** (string)
+   |  'x-api-key' => 'X-Api-Key'
+   body: Domm98CZ\Curl\Psr7\Stream #5
+   |  resource: stream resource @45
+   |  |  wrapper_type: 'PHP'
+   |  |  stream_type: 'TEMP'
+   |  |  mode: 'w+b'
+   |  |  unread_bytes: 0
+   |  |  seekable: true
+   |  |  uri: 'php://temp'
+
+With x-api-key, cookie and proxy-authorization added:
+Domm98CZ\Curl\Psr7\Request #2
+   uri: Domm98CZ\Curl\Psr7\Uri #4
+   |  scheme: 'https'
+   |  userInfo: ''
+   |  host: 'api.example.com'
+   |  port: null
+   |  path: '/users'
+   |  query: ''
+   |  fragment: ''
+   method: 'GET'
+   requestTarget: null
+   protocolVersion: '1.1'
+   headers: array (3)
+   |  'host' => array (1)
+   |  |  0 => 'api.example.com'
+   |  'authorization' => ***** (array)
+   |  'x-api-key' => ***** (array)
+   headerNames: array (3)
+   |  'host' => 'Host'
+   |  'authorization' => ***** (string)
+   |  'x-api-key' => ***** (string)
+   body: Domm98CZ\Curl\Psr7\Stream #5
+   |  resource: stream resource @45
+   |  |  wrapper_type: 'PHP'
+   |  |  stream_type: 'TEMP'
+   |  |  mode: 'w+b'
+   |  |  unread_bytes: 0
+   |  |  seekable: true
+   |  |  uri: 'php://temp'
+

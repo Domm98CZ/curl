@@ -168,6 +168,41 @@ final class HttpResponseParserTest extends TestCase
         self::assertFalse($response->hasHeader('Content-Length'));
     }
 
+    public function testKeepsContentEncodingAndLengthWhenTheBodyWasNotDecoded(): void
+    {
+        $raw = new RawResponse(
+            0,
+            '',
+            "HTTP/1.1 200 OK\r\nContent-Encoding: gzip\r\nContent-Length: 20\r\n\r\n",
+            $this->bodyStream('still encoded bytes'),
+            [],
+            contentDecodingEnabled: false
+        );
+
+        $response = $this->parser->parse($raw);
+
+        self::assertSame('gzip', $response->getHeaderLine('Content-Encoding'));
+        self::assertSame('20', $response->getHeaderLine('Content-Length'));
+    }
+
+    public function testKeepsContentEncodingAndLengthOfAnUndecodedStreamedResponse(): void
+    {
+        $raw = new RawResponse(
+            0,
+            '',
+            "HTTP/1.1 200 OK\r\nContent-Encoding: gzip\r\nContent-Length: 20\r\n\r\n",
+            $this->bodyStream(),
+            [],
+            bodyBuffered: false,
+            contentDecodingEnabled: false
+        );
+
+        $response = $this->parser->parse($raw);
+
+        self::assertSame('gzip', $response->getHeaderLine('Content-Encoding'));
+        self::assertSame('20', $response->getHeaderLine('Content-Length'));
+    }
+
     public function testParseHeaderBlockBuildsAResponseWithoutABody(): void
     {
         $response = $this->parser->parseHeaderBlock("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n");

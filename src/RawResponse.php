@@ -11,6 +11,7 @@ final class RawResponse
      * @param bool $bodyBuffered false when a stream handler consumed the body, leaving $body empty
      * @param bool $responseSizeExceeded only meaningful alongside a non-zero $errno, because consumers
      *                                   reach it through isTransportError() and never see it otherwise
+     * @param bool $contentDecodingEnabled false when libcurl left the body exactly as the server encoded it
      */
     public function __construct(
         public readonly int $errno,
@@ -20,6 +21,7 @@ final class RawResponse
         public readonly array $info,
         public readonly bool $bodyBuffered = true,
         public readonly bool $responseSizeExceeded = false,
+        public readonly bool $contentDecodingEnabled = true,
     ) {
     }
 

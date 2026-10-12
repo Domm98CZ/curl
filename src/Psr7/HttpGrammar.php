@@ -94,7 +94,11 @@ final class HttpGrammar
     public static function assertHost(string $host): void
     {
         if (preg_match(self::HOST, $host) !== 1) {
-            throw new InvalidArgumentException(sprintf('Invalid URI host: "%s".', $host));
+            throw new InvalidArgumentException(sprintf(
+                'Invalid URI host: "%s". Internationalized domain names must be converted to ASCII first, '
+                    . 'e.g. with idn_to_ascii().',
+                $host
+            ));
         }
     }
 

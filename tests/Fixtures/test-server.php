@@ -22,7 +22,7 @@ if ($uri === '/redirect') {
     exit;
 }
 
-if ($uri === '/redirect-to' && isset($_GET['url']) && is_string($_GET['url'])) {
+if (str_ends_with($uri, '/redirect-to') && isset($_GET['url']) && is_string($_GET['url'])) {
     header('Location: ' . $_GET['url'], true, 302);
     exit;
 }
@@ -78,6 +78,7 @@ if ($uri === '/echo-request') {
         'contentLength' => $_SERVER['CONTENT_LENGTH'] ?? '',
         'transferEncoding' => $_SERVER['HTTP_TRANSFER_ENCODING'] ?? '',
         'expect' => $_SERVER['HTTP_EXPECT'] ?? '',
+        'contentType' => $_SERVER['CONTENT_TYPE'] ?? '',
     ], JSON_THROW_ON_ERROR);
     exit;
 }

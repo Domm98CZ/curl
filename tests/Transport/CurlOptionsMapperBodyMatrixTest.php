@@ -49,6 +49,7 @@ final class CurlOptionsMapperBodyMatrixTest extends TestCase
             CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
             CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
             CURLOPT_ENCODING => '',
+            CURLOPT_PATH_AS_IS => true,
         ];
         foreach ($bodyAndMethodOptions as $option => $value) {
             $expected[$option] = $value === self::PAYLOAD ? $payload : $value;
@@ -108,10 +109,11 @@ final class CurlOptionsMapperBodyMatrixTest extends TestCase
             [], [],
         ];
 
+        // an empty buffer, not a missing one: without it libcurl frames the POST as a chunked upload
         yield 'POST without a body' => [
             'POST', 'empty', true,
-            [CURLOPT_POST => true],
-            [], [],
+            [CURLOPT_POSTFIELDS => '', CURLOPT_POST => true],
+            [], ['Content-Type:'],
         ];
         yield 'POST with a small buffered body' => [
             'POST', 'small', true,
@@ -191,6 +193,12 @@ final class CurlOptionsMapperBodyMatrixTest extends TestCase
             [CURLOPT_POSTFIELDS => self::PAYLOAD, CURLOPT_POST => true],
             ['Content-Type' => 'application/json'],
             ['Content-Type: application/json', 'Expect:'],
+        ];
+        yield 'an explicit Content-Type is not replaced on an empty POST' => [
+            'POST', 'empty', true,
+            [CURLOPT_POSTFIELDS => '', CURLOPT_POST => true],
+            ['Content-Type' => 'application/json'],
+            ['Content-Type: application/json'],
         ];
         yield 'an explicit Expect is forwarded instead of being removed on a buffered body' => [
             'POST', 'small', true,

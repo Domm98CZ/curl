@@ -226,6 +226,11 @@ final class RequestBuilder
         return $this->withOption(new Encoding($encoding));
     }
 
+    public function withoutEncoding(): self
+    {
+        return $this->withOption(Encoding::disabled());
+    }
+
     public function withHttpVersion(string $version): self
     {
         return $this->withOption(new HttpVersion($version));
